@@ -29,15 +29,15 @@ void affiche_xmm_i ( __m128i x )
 
   uint16_t a2[8];
   _mm_store_si128((__m128i*)a2,x);
-  cout<<"Xmm = "<<a2[0]<<" "<<a2[1]<<" "<<a2[2]<<" "<<a2[3]
+  cout<<"Xmm = "<<a2[0]<<" "<<a2[1]<<" "<<a2[2]<<" "<<a2[3]<<" "
   <<a2[4]<<" "<<a2[5]<<" "<<a2[6]<<" "<<a2[7]<<" \n";
 
   uint8_t a3[16];
   _mm_store_si128((__m128i*)a3,x);
-  cout<<"Xmm = "<<a3[0]<<" "<<a3[1]<<" "<<a3[2]<<" "<<a3[3]
-  <<a3[4]<<" "<<a3[5]<<" "<<a3[6]<<" "<<a3[7]
-  <<a3[8]<<" "<<a3[9]<<" "<<a3[10]<<" "<<a3[11]
-  <<a3[12]<<" "<<a3[13]<<" "<<a3[14]<<" "<<a3[15]<<" \n";
+  cout<<"Xmm = "<<(int)a3[0]<<" "<<(int)a3[1]<<" "<<(int)a3[2]<<" "<<(int)a3[3]<<" "
+  <<(int)a3[4]<<" "<<(int)a3[5]<<" "<<(int)a3[6]<<" "<<(int)a3[7]<<" "
+  <<(int)a3[8]<<" "<<(int)a3[9]<<" "<<(int)a3[10]<<" "<<(int)a3[11]<<" "
+  <<(int)a3[12]<<" "<<(int)a3[13]<<" "<<(int)a3[14]<<" "<<(int)a3[15]<<" \n";
 
 }
 
@@ -80,13 +80,25 @@ void Luminance_sse(int d_lum, unsigned char *X, long h, long l, unsigned char *Y
 {
   int nbPixels=h*l;
   __m128i a,b,c;
-  b=_mm_set1_epi8(d_lum);
-  affiche_xmm_i(b);
-  for(int i=0;i<nbPixels;i+=16){
-    a=_mm_load_si128((__m128i*)&X[i]);
-    c=_mm_adds_epu8(b,a);
-    _mm_store_si128((__m128i*)&Y[i],c);
+  if(d_lum<0){
+    b=_mm_set1_epi8(abs(d_lum));
+    affiche_xmm_i(b);
+
+    for(int i=0;i<nbPixels;i+=16){
+       a=_mm_load_si128((__m128i*)&X[i]);
+       c=_mm_subs_epu8(a,b);
+       _mm_store_si128((__m128i*)&Y[i],c);
+     }
+  }else{
+
+    b=_mm_set1_epi8(d_lum);
+    for(int i=0;i<nbPixels;i+=16){
+       a=_mm_load_si128((__m128i*)&X[i]);
+       c=_mm_adds_epu8(a,b);
+       _mm_store_si128((__m128i*)&Y[i],c);
+     }
   }
+
 
 }
 
@@ -109,6 +121,16 @@ void binarise (unsigned char seuil, unsigned char *X, long h, long l, unsigned c
 
 void binarise_sse (unsigned char seuil, unsigned char *X, long h, long l, unsigned char *Y)
 {
+
+  int nbPixels = h*l;
+  __m128i v_seuil = _mm_set1_epi8(seuil);
+  __m128i v_moins1 = _mm_set1_epi8(-1);
+  __m128i v_donnees,v_resultat;
+  for(int i=0;i<nbPixels;i+=16){
+    v_donnees=_mm_load_si128((__m128i*)&X[i]);
+    v_resultat=_mm_xor_si128(_mm_cmpeq_epi8(_mm_max_epu8(v_seuil,v_donnees),v_seuil),v_moins1);
+    _mm_store_si128((__m128i*)&Y[i],v_resultat);
+  }
 }
 
 
@@ -134,6 +156,23 @@ void min_et_max (unsigned char *X, long h, long l, unsigned char & min, unsigned
 
 void min_et_max_sse (unsigned char *X, long h, long l, unsigned char & min, unsigned char & max )
 {
+
+  int nbPixels = h*l;
+  __m128i v_min = _mm_set1_epi8(255);
+    __m128i v_max = _mm_set1_epi8(0);
+    __m128i v_donnees;
+
+  for(int i=0;i<nbPixels;i+=16){
+    v_donnees=_mm_load_si128((__m128i*)&X[i]);
+    v_min = ;
+    v_max= ;
+  }
+
+  for(int i=0;i<16;i++){
+    min = min(tmpMin[i],min);
+  }
+
+
 }
 
 
@@ -194,7 +233,7 @@ int main (int argc, char** argv)
 
   // cr�ation d'une image pour stocker l'image illuminée en sse
   IplImage* image_luminance_sse = cvCreateImage (cvGetSize (img), IPL_DEPTH_8U, 1);
-  Luminance_sse(20,(unsigned char*) img->imageData, img->height, img->width, (unsigned char*) image_inverse_sse->imageData);
+  Luminance_sse(-20,(unsigned char*) img->imageData, img->height, img->width, (unsigned char*) image_luminance_sse->imageData);
   cvShowImage( "Affiche_Luminance_sse", image_luminance_sse);
 
 
@@ -203,6 +242,12 @@ int main (int argc, char** argv)
   IplImage* image_binaire = cvCreateImage (cvGetSize (img), IPL_DEPTH_8U, 1);
   binarise( 120, (unsigned char*) img->imageData, img->height, img->width, (unsigned char*) image_binaire->imageData);
   cvShowImage( "Affiche_binaire", image_binaire);
+
+
+  	// cr�ation d'une image pour stocker l'image binaris�e
+    IplImage* image_binaire_sse = cvCreateImage (cvGetSize (img), IPL_DEPTH_8U, 1);
+    binarise_sse( 120, (unsigned char*) img->imageData, img->height, img->width, (unsigned char*) image_binaire_sse->imageData);
+    cvShowImage( "Affiche_binaire_sse", image_binaire_sse);
 
 
 
